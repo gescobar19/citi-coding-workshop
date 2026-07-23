@@ -88,9 +88,11 @@ if [ -z "$API_BASE_URL" ]; then
 fi
 
 # Handle empty API base URL (valid for local development - uses direct Lambda URLs)
+USING_PROXY=false
 if [ -z "$API_BASE_URL" ]; then
-    echo "API Base URL: (empty - using direct Lambda Function URLs)"
+    echo "API Base URL: (empty - routing through the local CORS proxy)"
     API_BASE_URL="http://localhost:3001"
+    USING_PROXY=true
 else
     echo "API Base URL: $API_BASE_URL"
 fi
@@ -98,6 +100,22 @@ fi
 # Retrieve API endpoints and Lambda URLs from Terraform outputs
 API_ENDPOINTS=$(terraform output -json api_endpoints 2>/dev/null || echo "{}")
 LAMBDA_URLS=$(terraform output -json lambda_urls 2>/dev/null || echo "{}")
+
+# The proxy routes on /api/{service}, so the frontend needs that path prefix.
+# Prefer the FastAPI service, otherwise fall back to the first endpoint.
+API_PREFIX=""
+if [ "$USING_PROXY" = true ]; then
+    SERVICE_NAME=$(echo "$API_ENDPOINTS" | grep -o '"fastapi-service"' | head -1 | tr -d '"')
+    if [ -z "$SERVICE_NAME" ]; then
+        SERVICE_NAME=$(echo "$API_ENDPOINTS" | grep -o '"[^"]*":"http' | head -1 | cut -d'"' -f2)
+    fi
+    if [ -n "$SERVICE_NAME" ]; then
+        API_PREFIX="/api/$SERVICE_NAME"
+        echo "API Prefix:   $API_PREFIX"
+    else
+        echo "WARN: No API endpoints found — frontend will have no proxy prefix to use"
+    fi
+fi
 
 # Generate .env.local configuration file for React frontend
 cat > "$ENVIRONMENT_CONFIG" << EOF
@@ -108,6 +126,7 @@ REACT_APP_API_URL=$API_BASE_URL
 REACT_APP_API_ENDPOINTS='$API_ENDPOINTS'
 REACT_APP_LAMBDA_URLS='$LAMBDA_URLS'
 VITE_API_URL=$API_BASE_URL
+VITE_API_PREFIX=$API_PREFIX
 VITE_API_ENDPOINTS='$API_ENDPOINTS'
 VITE_LAMBDA_URLS='$LAMBDA_URLS'
 EOF

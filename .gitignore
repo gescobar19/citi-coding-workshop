@@ -256,3 +256,25 @@ tfplan
 
 # Snyk Security Extension - AI Rules (auto-generated)
 .github/instructions/snyk_rules.instructions.md
+
+# ---------------------------------------------------------------------------
+# backend/fastapi-service: vendored Python dependencies
+#
+# Deployment installs the whole dependency tree flat into this folder
+# (`pip install -t .`) so it can be zipped into a Lambda bundle. That leaves
+# ~60 package directories — fastapi/, pydantic/, starlette/, psycopg/ and
+# friends — sitting next to the service's own code. None of it belongs in
+# version control: requirements.txt pins every version, so it all rebuilds
+# from one command.
+#
+# Ignore everything in the folder, then add back the four entries that are
+# actually source. NOTE: this is an allow-list — any NEW file added directly
+# under backend/fastapi-service/ is ignored by default. If you add one (a
+# Dockerfile, a README), add a matching `!` line for it here or git will
+# silently skip it.
+# ---------------------------------------------------------------------------
+backend/fastapi-service/*
+!backend/fastapi-service/app/
+!backend/fastapi-service/tests/
+!backend/fastapi-service/function.py
+!backend/fastapi-service/requirements.txt

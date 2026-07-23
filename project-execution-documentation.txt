@@ -1,0 +1,310 @@
+Project Execution Documentation
+
+Scope
+- This document explains the current backend and frontend implementation, structure, and execution steps.
+- README files are intentionally not modified.
+
+==================================================
+1) Backend Overview (FastAPI Service)
+==================================================
+
+Backend service path:
+- backend/fastapi-service
+
+Purpose:
+- Provides REST API for project management data stored in PostgreSQL schema pms.
+- Exposes read and write endpoints for projects and read endpoints for resource load.
+
+Current API base (direct local mode):
+- http://localhost:8000
+
+Current API base (workshop proxy mode):
+- http://localhost:3001/api/fastapi-service
+
+--------------------------------------------------
+1.1 Backend structure
+--------------------------------------------------
+
+backend/fastapi-service/
+- function.py
+  - Lambda entrypoint (Mangum handler)
+- requirements.txt
+  - Python dependencies
+- .env
+  - Local environment configuration
+- app/
+  - __init__.py
+  - main.py
+    - FastAPI app setup, CORS, router registration, lifespan hook
+  - db.py
+    - DB connection pool setup and cursor helper
+  - models.py
+    - Pydantic request/response models
+  - routers/
+    - __init__.py
+    - projects.py
+      - /projects endpoints
+    - resources.py
+      - /resources endpoints
+- tests/
+  - test_api.py
+    - API tests with mocked cursor
+- localhost-check-commands.txt
+  - Quick command checklist
+
+--------------------------------------------------
+1.2 Database dependencies
+--------------------------------------------------
+
+Database schema and seed files:
+- backend/project-management-service/project_management_schema.sql
+- backend/project-management-service/project_management_seed.sql
+
+Expected DB:
+- Database name: project_management
+- Schema: pms
+- Views required by API:
+  - v_project_summary
+  - v_projects
+  - v_blocked_projects
+  - v_deliverables
+  - v_resource_load
+
+--------------------------------------------------
+1.3 Backend environment variables
+--------------------------------------------------
+
+Primary convention used in this repository:
+- IS_LOCAL
+- POSTGRES_HOST
+- POSTGRES_PORT
+- POSTGRES_NAME
+- POSTGRES_USER
+- POSTGRES_PASS
+
+Compatibility aliases (also supported by current db.py):
+- DB_HOST
+- DB_PORT
+- DB_NAME
+- DB_USER
+- DB_PASSWORD
+
+Current local expectation:
+- POSTGRES_NAME=project_management
+- POSTGRES_USER=postgres
+- POSTGRES_PASS=postgres123
+
+--------------------------------------------------
+1.4 Backend endpoints
+--------------------------------------------------
+
+Health:
+- GET /health
+
+Projects:
+- GET /projects
+  - Optional query: status (not_started | in_progress | finished | cancelled)
+- GET /projects/{project_id}
+- POST /projects
+- PUT /projects/{project_id}
+- DELETE /projects/{project_id}
+
+Resources:
+- GET /resources
+- GET /resources/over-allocated
+
+--------------------------------------------------
+1.5 Local backend execution (direct mode)
+--------------------------------------------------
+
+From service directory:
+1) Create venv with Python 3.13
+/usr/bin/python3.13 -m venv .venv
+
+2) Activate
+. .venv/bin/activate
+
+3) Install
+pip install -r requirements.txt
+
+4) Start server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+If launched from outside service folder, use app-dir:
+uvicorn app.main:app --app-dir /home/91777e07/Documents/citi-business-prob/coding-workshop-participant/backend/fastapi-service --reload --host 0.0.0.0 --port 8000
+
+--------------------------------------------------
+1.6 Backend test commands
+--------------------------------------------------
+
+Run API tests:
+- cd backend/fastapi-service
+- . .venv/bin/activate
+- pytest -q tests/test_api.py
+
+Current expected status:
+- Tests pass (10 total).
+
+--------------------------------------------------
+1.7 Backend smoke-test commands
+--------------------------------------------------
+
+Read checks:
+curl -sS http://localhost:8000/health && echo
+curl -sS http://localhost:8000/projects && echo
+curl -sS "http://localhost:8000/projects?status=in_progress" && echo
+curl -sS http://localhost:8000/projects/1 && echo
+curl -sS http://localhost:8000/resources && echo
+curl -sS http://localhost:8000/resources/over-allocated && echo
+
+Write checks:
+curl -X POST http://localhost:8000/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Project Alpha","status":"not_started","priority":"medium"}'
+
+curl -X PUT http://localhost:8000/projects/1 \
+  -H "Content-Type: application/json" \
+  -d '{"priority":"high","status":"in_progress"}'
+
+curl -X DELETE http://localhost:8000/projects/7
+
+--------------------------------------------------
+1.8 Rebuild database commands
+--------------------------------------------------
+
+From backend/project-management-service:
+PGPASSWORD=postgres123 psql -h localhost -U postgres -d project_management -c "DROP SCHEMA IF EXISTS pms CASCADE; CREATE SCHEMA pms;"
+PGPASSWORD=postgres123 psql -h localhost -U postgres -d project_management -f project_management_schema.sql
+PGPASSWORD=postgres123 psql -h localhost -U postgres -d project_management -f project_management_seed.sql
+
+Verify required views:
+PGPASSWORD=postgres123 psql -h localhost -U postgres -d project_management -c "select schemaname, viewname from pg_views where schemaname='pms' and viewname in ('v_resource_load','v_project_summary','v_projects','v_blocked_projects') order by viewname;"
+
+==================================================
+2) Frontend Overview (React + Vite)
+==================================================
+
+Frontend path:
+- frontend
+
+Purpose:
+- Landing page lists projects with status filter and resource snapshot.
+- Detail page shows project, team, budget, and deliverables.
+
+--------------------------------------------------
+2.1 Frontend structure
+--------------------------------------------------
+
+frontend/src/
+- main.jsx
+  - React entrypoint
+- App.jsx
+  - Main UI for list/detail flows
+- App.css
+  - Component-level styling
+- index.css
+  - Global styling
+- services/
+  - projectApi.js
+    - API client for /projects and /resources endpoints
+
+--------------------------------------------------
+2.2 Frontend environment variable
+--------------------------------------------------
+
+Primary API selector:
+- VITE_FASTAPI_BASE_URL
+
+Direct local mode:
+- VITE_FASTAPI_BASE_URL=http://localhost:8000
+
+Proxy mode:
+- VITE_FASTAPI_BASE_URL=http://localhost:3001/api/fastapi-service
+
+--------------------------------------------------
+2.3 Frontend execution
+--------------------------------------------------
+
+From frontend directory:
+1) Install dependencies
+npm install
+
+2) Start dev server
+npm run dev
+
+3) Build production bundle
+npm run build
+
+--------------------------------------------------
+2.4 Frontend behavior summary
+--------------------------------------------------
+
+List view:
+- Loads projects, resource list, and over-allocated list.
+- Supports status filtering.
+
+Detail view:
+- Route pattern: /project/{project_id}
+- Shows:
+  - Project metadata
+  - Team allocations
+  - Budget entries
+  - Deliverables
+
+==================================================
+3) LocalStack/Proxy Mode Notes
+==================================================
+
+Proxy endpoint is HTTP on port 3001.
+- Use http://localhost:3001 (not https://localhost:3001)
+
+Typical flow:
+1) Deploy backend locally
+./bin/deploy-backend.sh local
+
+2) Start dev stack
+./bin/start-dev.sh
+
+3) Test through proxy
+curl -sS http://localhost:3001/api/fastapi-service/health && echo
+curl -sS http://localhost:3001/api/fastapi-service/projects && echo
+
+==================================================
+4) Common Issues and Fixes
+==================================================
+
+1) Python 3.14 dependency failures (pydantic-core build)
+- Use Python 3.13 for backend venv.
+
+2) Address already in use on port 8000
+- Another server is running.
+- Check:
+  ss -ltnp | grep ':8000'
+
+3) 500 errors from missing views
+- Rebuild schema + seed in project_management DB.
+- Ensure pms views exist.
+
+4) HTTPS error on proxy
+- If using https://localhost:3001, switch to http://localhost:3001.
+
+5) Command paste includes control characters (example: ^[[200~)
+- Re-type command manually and run again.
+
+==================================================
+5) Current Feature Status
+==================================================
+
+Implemented:
+- Project read endpoints
+- Project write endpoints (create/update/delete)
+- Resource read endpoints
+- React list/detail UI for projects
+- Backend tests for read and write routes
+
+Not yet implemented:
+- Frontend forms/buttons for create/update/delete
+- Auth/authorization
+- Pagination/sorting/search enhancements
+
+End of document.

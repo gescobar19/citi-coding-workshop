@@ -1,0 +1,546 @@
+Current API Reference (FastAPI Service)
+
+Service name:
+- fastapi-service
+
+API title:
+- Project Management API
+
+Base URLs:
+- Direct local mode: http://localhost:8000
+- Proxy mode: http://localhost:3001/api/fastapi-service
+
+CORS origins currently allowed by backend:
+- http://localhost:3000
+- http://localhost:5173
+
+==================================================
+1) Health Endpoint
+==================================================
+
+GET /health
+
+Description:
+- Basic service health check.
+
+Success response:
+- 200 OK
+- Body:
+  {
+    "status": "ok"
+  }
+
+Example:
+curl -sS http://localhost:8000/health
+
+==================================================
+2) Project Endpoints
+==================================================
+
+Allowed status values:
+- not_started
+- in_progress
+- finished
+- cancelled
+
+Allowed priority values:
+- low
+- medium
+- high
+- critical
+
+--------------------------------------------------
+2.1 List projects
+--------------------------------------------------
+
+GET /projects
+GET /projects?status=in_progress
+
+Description:
+- Returns project summary rows from v_project_summary.
+- Optional status filter.
+
+Validation:
+- If status is provided and not in allowed values, returns 400.
+
+Success response:
+- 200 OK
+- Body: array of project summary objects
+- Fields include:
+  - project_id
+  - name
+  - status
+  - priority
+  - start_date
+  - expected_end_date
+  - sponsor
+  - lead
+  - team_size
+  - total_hours
+  - budget_allocated
+  - budget_spent
+  - deliverables_total
+  - deliverables_done
+  - has_late_deliverables
+
+Error response:
+- 400 Bad Request
+- Body example:
+  {
+    "detail": "Invalid status 'bad'. Allowed values: cancelled, finished, in_progress, not_started"
+  }
+
+Example:
+curl -sS http://localhost:8000/projects
+curl -sS "http://localhost:8000/projects?status=in_progress"
+
+--------------------------------------------------
+2.2 Get project detail
+--------------------------------------------------
+
+GET /projects/{project_id}
+
+Description:
+- Returns one project plus related sections:
+  - project
+  - team
+  - budget
+  - deliverables
+  - blockers
+
+Success response:
+- 200 OK
+- Body shape:
+  {
+    "project": {...},
+    "team": [...],
+    "budget": [...],
+    "deliverables": [...],
+    "blockers": [...]
+  }
+
+Error response:
+- 404 Not Found
+- Body example:
+  {
+    "detail": "Project not found"
+  }
+
+Example:
+curl -sS http://localhost:8000/projects/1
+
+--------------------------------------------------
+2.3 Create project
+--------------------------------------------------
+
+POST /projects
+
+Description:
+- Inserts a row into projects and returns the created row.
+
+Request body (JSON):
+- Required:
+  - name (string)
+- Optional:
+  - description (string|null)
+  - objective (string|null)
+  - status (string, default: not_started)
+  - priority (string, default: medium)
+  - start_date (date|null, YYYY-MM-DD)
+  - expected_end_date (date|null, YYYY-MM-DD)
+  - actual_end_date (date|null, YYYY-MM-DD)
+  - sponsor_id (int|null)
+  - lead_id (int|null)
+
+Validation:
+- status must be one of allowed statuses.
+- priority must be one of allowed priorities.
+
+Success response:
+- 201 Created
+- Body: created project row
+
+Error responses:
+- 400 Bad Request for invalid status/priority
+- 500 Internal Server Error if insert returns no row
+
+Example:
+curl -X POST http://localhost:8000/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Project Alpha","status":"not_started","priority":"medium"}'
+
+--------------------------------------------------
+2.4 Update project
+--------------------------------------------------
+
+PUT /projects/{project_id}
+
+Description:
+- Partial update of project fields; updates updated_at automatically.
+
+Request body (JSON):
+- Any subset of:
+  - name
+  - description
+  - objective
+  - status
+  - priority
+  - start_date
+  - expected_end_date
+  - actual_end_date
+  - sponsor_id
+  - lead_id
+
+Validation:
+- At least one field must be provided.
+- status must be one of allowed statuses if provided.
+- priority must be one of allowed priorities if provided.
+- Unknown fields are ignored; if only unknown fields are sent, returns 400.
+
+Success response:
+- 200 OK
+- Body: updated project row
+
+Error responses:
+- 400 Bad Request
+  - "At least one field is required for update"
+  - "No valid fields provided for update"
+  - invalid status/priority message
+- 404 Not Found
+  - "Project not found"
+
+Example:
+curl -X PUT http://localhost:8000/projects/1 \
+  -H "Content-Type: application/json" \
+  -d '{"priority":"high","status":"in_progress"}'
+
+--------------------------------------------------
+2.5 Delete project
+--------------------------------------------------
+
+DELETE /projects/{project_id}
+
+Description:
+- Deletes project row by ID.
+
+Success response:
+- 200 OK
+- Body:
+  {
+    "message": "Project {project_id} deleted"
+  }
+
+Error response:
+- 404 Not Found
+- Body:
+  {
+    "detail": "Project not found"
+  }
+
+Example:
+curl -X DELETE http://localhost:8000/projects/7
+
+==================================================
+3) Resource Endpoints
+==================================================
+
+--------------------------------------------------
+3.1 List resource load
+--------------------------------------------------
+
+GET /resources
+
+Description:
+- Returns rows from v_resource_load sorted by resource_name.
+
+Success response:
+- 200 OK
+- Body: array of resource load objects
+- Fields:
+  - resource_id
+  - resource_name
+  - department
+  - weekly_hours
+  - allocated_hours
+  - available_hours
+  - is_over_allocated
+
+Example:
+curl -sS http://localhost:8000/resources
+
+--------------------------------------------------
+3.2 List over-allocated resources
+--------------------------------------------------
+
+GET /resources/over-allocated
+
+Description:
+- Returns only over-allocated resources sorted by allocated_hours desc.
+
+Success response:
+- 200 OK
+- Body: same object shape as /resources
+
+Example:
+curl -sS http://localhost:8000/resources/over-allocated
+
+==================================================
+4) Role-Based Access Control
+==================================================
+
+The login endpoint returns the account's role. The frontend echoes it back on
+every request:
+
+  X-User-Id:   <user_id>
+  X-User-Role: admin | executive
+
+Rules enforced by the backend (app/security.py):
+- Every GET endpoint is open to both roles (executives are read-only).
+- Every POST / PUT / DELETE requires X-User-Role: admin, otherwise 403.
+- /users (the admin console) is administrator-only, including GET.
+- A missing header is treated as "executive", so writes fail closed.
+
+Example (rejected):
+curl -sS -X POST http://localhost:8000/projects \
+  -H "Content-Type: application/json" -H "X-User-Role: executive" \
+  -d '{"name":"Test"}'
+=> 403 {"detail":"Administrator role required — executive accounts are read-only"}
+
+==================================================
+5) Standard Labour Costing Rule
+==================================================
+
+Defined once in backend/fastapi-service/app/costing.py and mirrored in
+frontend/src/services/format.js:
+
+- Standard hourly rate:  $100 / hour
+- Standard week:         40 hours
+- Full-time week cost:   $4,000
+
+Derived figures returned by the API:
+- weekly_cost         = allocated_hours x 100
+- duration_weeks      = round((expected_end_date - start_date) / 7), 0 if unknown
+- projected_cost      = weekly_cost x duration_weeks
+- fte_equivalent      = weekly_hours / 40
+
+==================================================
+6) Dashboard Endpoint
+==================================================
+
+GET /dashboard/summary
+
+Description:
+- Single call powering the portfolio dashboard.
+
+Returns:
+- kpis                   (project / deliverable / resource / budget counters)
+- status_breakdown       (project count per status)
+- projects               (v_project_summary rows)
+- at_risk                (projects with reasons: late, blocked, over budget, unstaffed)
+- upcoming_deliverables  (next 12 open milestones by expected date)
+- resource_load          (10 busiest employees)
+- over_allocated         (employees beyond weekly capacity)
+- blocked                (project waits on project)
+- blocked_deliverables   (dependency chain: deliverable waits on deliverable)
+- spend_by_category      (spent amount per budget category)
+- standard_rate          (hourly_rate, weekly_hours, full_time_weekly_cost)
+
+Example:
+curl -sS http://localhost:8000/dashboard/summary
+
+==================================================
+7) Allocation Endpoints (employees on projects)
+==================================================
+
+GET    /allocations?project_id=<id>     list assignments (both roles)
+POST   /allocations                     assign an employee        (admin)
+PUT    /allocations/{allocation_id}     change role/hours/dates   (admin)
+DELETE /allocations/{allocation_id}     unassign                  (admin)
+
+POST body:
+  {
+    "project_id": 1,
+    "resource_id": 4,
+    "role": "Senior Engineer",
+    "allocated_hours": 40,          // 1-40, validated
+    "start_date": "2026-08-01",     // optional, defaults to today
+    "end_date": "2026-12-01"        // optional
+  }
+
+Responses include hourly_rate (100.00) and weekly_cost.
+
+Errors:
+- 400 hours outside 1-40
+- 409 employee already assigned to that project
+- 404 unknown project or employee
+
+==================================================
+8) Budget Endpoints
+==================================================
+
+GET    /budgets?project_id=<id>   list budget lines               (both roles)
+GET    /budgets/summary           portfolio roll-up + labour math (both roles)
+POST   /budgets                   add a line                      (admin)
+PUT    /budgets/{budget_id}       edit a line                     (admin)
+DELETE /budgets/{budget_id}       delete a line                   (admin)
+
+Allowed categories:
+- personnel, software, hardware, vendor, legal, marketing, training,
+  contingency, other
+
+GET /budgets/summary returns:
+  {
+    "totals": {
+      "projects", "budget_allocated", "budget_spent", "budget_remaining",
+      "utilization_pct", "weekly_hours", "weekly_labor_cost",
+      "projected_labor_cost", "standard_hourly_rate", "standard_weekly_hours"
+    },
+    "projects": [
+      {
+        ... project fields ...,
+        "team_size", "weekly_hours", "fte_equivalent", "duration_weeks",
+        "weekly_labor_cost", "projected_labor_cost", "labor_vs_budget_pct",
+        "over_budget",
+        "labor": [ per-employee cost lines ]
+      }
+    ]
+  }
+
+==================================================
+9) Deliverable Endpoints
+==================================================
+
+GET    /deliverables?project_id=<id>        list                  (both roles)
+POST   /deliverables                        create                (admin)
+PUT    /deliverables/{deliverable_id}       update                (admin)
+DELETE /deliverables/{deliverable_id}       delete                (admin)
+
+Notes:
+- sequence_no is assigned automatically when omitted (max + 1 for the project).
+- status "finished" requires completed_date; reopening clears it.
+- 409 when a sequence number is already used on the project.
+
+--------------------------------------------------
+9.1 Dependency chain between deliverables
+--------------------------------------------------
+
+Table: pms.deliverable_dependencies
+  (deliverable_id, depends_on_id, dependency_type, notes)
+  "deliverable_id waits on depends_on_id"
+  Dependencies may cross projects (Beta Test on the card rollout waits on
+  First Production Run in the card printing project).
+
+Views:
+  v_deliverable_dependencies  every edge, both ends resolved, with
+                              is_blocking and is_cross_project flags
+  v_blocked_deliverables      only the edges holding work up right now
+
+GET /deliverables/dependencies?project_id=<id>&blocking_only=true
+- Every "X waits on Y" edge. project_id matches either end of the edge, so a
+  cross-project blocker appears on both projects.
+
+GET /deliverables/blocked
+- Deliverables that cannot start because a predecessor is unfinished.
+
+GET /deliverables/{deliverable_id}/chain
+- The transitive chain around one deliverable, walked with a recursive CTE
+  (depth capped at 20, cycle-safe):
+  {
+    "deliverable_id", "name", "blocked": true,
+    "upstream":   [ {deliverable_id, name, project_name, status, depth, path,
+                     is_blocking}, ... ],   // everything it waits on
+    "downstream": [ ... ]                   // everything waiting on it
+  }
+
+POST /deliverables/{deliverable_id}/dependencies          (admin)
+  { "depends_on_id": 6,
+    "dependency_type": "finish_to_start" | "start_to_start",
+    "notes": "Beta test needs physical cards." }
+
+DELETE /deliverables/{deliverable_id}/dependencies/{depends_on_id}   (admin)
+
+Guard rails:
+- 400 a deliverable cannot depend on itself
+- 400 the edge would create a circular dependency (checked with a recursive
+      walk before inserting)
+- 400 invalid dependency_type
+- 409 the dependency already exists
+- 404 unknown deliverable
+
+Example:
+curl -sS http://localhost:8000/deliverables/4/chain
+
+==================================================
+10) Resource (employee) Endpoints
+==================================================
+
+GET    /resources                    workload view (v_resource_load)
+GET    /resources/over-allocated     only over-allocated employees
+GET    /resources/directory          full employee records + load + project count
+POST   /resources                    create employee              (admin)
+PUT    /resources/{resource_id}      update employee              (admin)
+DELETE /resources/{resource_id}      delete employee              (admin)
+
+==================================================
+11) User Endpoints (admin console) - administrator only
+==================================================
+
+GET    /users?role=admin|executive   list accounts
+POST   /users                        create an account
+PUT    /users/{user_id}              update email/password/role/active
+DELETE /users/{user_id}              delete an account
+
+Guard rails:
+- You cannot delete, deactivate, or downgrade your own account.
+- The last active administrator cannot be deleted.
+- Passwords are never returned in any response.
+
+==================================================
+12) Proxy Mode Equivalents
+==================================================
+
+If using project proxy mode, prepend:
+- http://localhost:3001/api/fastapi-service
+
+Examples:
+- http://localhost:3001/api/fastapi-service/health
+- http://localhost:3001/api/fastapi-service/dashboard/summary
+- http://localhost:3001/api/fastapi-service/projects
+- http://localhost:3001/api/fastapi-service/budgets/summary
+- http://localhost:3001/api/fastapi-service/resources/directory
+
+==================================================
+13) Current Backend Test Coverage
+==================================================
+
+Current automated tests cover:
+- health endpoint
+- list projects
+- invalid status filter handling
+- project not found handling
+- list resources
+- over-allocated resources
+- create / update / delete project (with administrator headers)
+- empty update validation
+- executive blocked from writes; missing role header fails closed
+- executive blocked from the user console; administrator allowed
+- administrator cannot delete their own account
+- allocation hours capped at 40 per week
+- allocation responses carry the $100/hour rate and weekly cost
+- costing helpers (weekly cost, duration in weeks, projected cost)
+- budget summary labour projection and totals
+- invalid budget category rejected
+- finished deliverable requires a completed date
+- dashboard KPI roll-up
+- deliverable cannot depend on itself; invalid dependency type rejected
+- circular dependency between deliverables refused
+- executive blocked from adding dependencies
+- blocked deliverable list and upstream/downstream chain
+
+Test file:
+- backend/fastapi-service/tests/test_api.py
+
+Run:
+cd backend/fastapi-service && .venv/bin/python -m pytest tests -q
+
+End of reference.

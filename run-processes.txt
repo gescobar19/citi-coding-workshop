@@ -1,0 +1,113 @@
+Run Processes: Frontend + Backend
+
+This file documents two working ways to run the project:
+1) Direct local mode (recommended for stable frontend/backend iteration)
+2) Alternate proxy mode (workshop start-dev flow)
+
+==================================================
+1) Direct Local Mode (Recommended)
+==================================================
+
+Goal:
+- Run FastAPI directly on port 8000.
+- Run Vite frontend on port 5173.
+- Frontend fetches data from backend directly.
+
+Terminal A: Start backend
+
+cd /home/91777e07/Documents/citi-business-prob/coding-workshop-participant/backend/fastapi-service
+
+# First time only:
+python3.13 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+
+# Every run:
+. .venv/bin/activate
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+Backend health check:
+curl -sS http://localhost:8000/health
+
+Expected:
+{"status":"ok"}
+
+Optional backend data checks:
+curl -sS http://localhost:8000/projects | head
+curl -sS http://localhost:8000/resources | head
+
+Terminal B: Start frontend
+
+cd /home/91777e07/Documents/citi-business-prob/coding-workshop-participant/frontend
+npm install
+npm run dev
+
+Open in browser:
+http://localhost:5173
+
+Stop processes:
+- Press Ctrl+C in both terminals.
+
+
+==================================================
+2) Alternate Proxy Mode (Workshop Flow)
+==================================================
+
+Goal:
+- Use workshop proxy server on port 3001.
+- Access services through /api/<service-name> paths.
+
+From project root:
+
+cd /home/91777e07/Documents/citi-business-prob/coding-workshop-participant
+
+Start workflow:
+./bin/start-dev.sh
+
+If backend Lambda/proxy is not available yet, deploy backend first:
+./bin/deploy-backend.sh local
+./bin/start-dev.sh
+
+Proxy checks:
+curl -sS http://localhost:3001/api/fastapi-service/health
+curl -sS http://localhost:3001/api/fastapi-service/projects | head
+curl -sS http://localhost:3001/api/fastapi-service/resources | head
+
+Expected:
+- Health returns JSON with status ok.
+- Projects/resources return JSON arrays.
+
+Frontend in proxy mode:
+- Run frontend as normal with Vite.
+- If needed, set the frontend API base to the proxy path for your setup.
+
+Terminal for frontend:
+cd /home/91777e07/Documents/citi-business-prob/coding-workshop-participant/frontend
+npm install
+npm run dev
+
+Open in browser:
+http://localhost:5173
+
+Stop processes:
+- Press Ctrl+C in any terminal running start-dev and frontend dev server.
+
+
+==================================================
+3) Quick Troubleshooting
+==================================================
+
+Check listeners:
+ss -ltnp | awk 'NR==1 || /:5173|:8000|:3001/'
+
+Common issue: frontend shows JSON parse error with "Unexpected token '<'"
+- Cause: frontend received HTML (often index page) instead of API JSON.
+- Fix: verify backend/proxy URL and route prefix are correct.
+
+Common issue: backend command fails from wrong folder
+- Use backend service folder or pass --app-dir explicitly.
+
+Known ports:
+- Frontend Vite: 5173
+- FastAPI direct: 8000
+- Workshop proxy: 3001
