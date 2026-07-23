@@ -31,6 +31,8 @@ import { LABOR_RATE, fmtMoney, laborCost } from "../services/format.js";
 import Avatar from "../components/Avatar";
 import SearchField from "../components/SearchField";
 import StatCard from "../components/StatCard";
+import TablePager from "../components/TablePager";
+import { usePagination } from "../services/usePagination.js";
 import ProgressBar from "../components/ProgressBar";
 import ResourceDialog from "../components/ResourceDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -59,6 +61,10 @@ export default function ResourcesPage() {
     );
   }, [resources, search]);
 
+  const { paged, pagerProps } = usePagination(filtered);
+
+  // Counts describe the whole directory, not the visible page — a headline that
+  // changed when you turned the page would be measuring the wrong thing.
   const overCount = resources.filter((r) => r.is_over_allocated).length;
   const idleCount = resources.filter((r) => Number(r.allocated_hours) === 0).length;
   const okCount = resources.length - overCount - idleCount;
@@ -138,7 +144,7 @@ export default function ResourcesPage() {
                 <TableRow>{headers.map((h) => <TableCell key={h}>{h}</TableCell>)}</TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((r) => {
+                {paged.map((r) => {
                   const allocated = Number(r.allocated_hours || 0);
                   const capacity = Number(r.weekly_hours || 0);
                   const util = capacity ? Math.round((allocated / capacity) * 100) : 0;
@@ -202,6 +208,7 @@ export default function ResourcesPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePager {...pagerProps} label="Employees per page:" />
         </Paper>
       )}
 

@@ -29,6 +29,8 @@ import StatCard from "../components/StatCard";
 import StatusChip from "../components/StatusChip";
 import ProgressBar from "../components/ProgressBar";
 import SearchField from "../components/SearchField";
+import TablePager from "../components/TablePager";
+import { usePagination } from "../services/usePagination.js";
 import { Spinner } from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
@@ -51,6 +53,9 @@ export default function BudgetPage() {
     const q = search.toLowerCase();
     return projects.filter((p) => !q || p.name.toLowerCase().includes(q));
   }, [projects, search]);
+
+  // Called before the early returns below: hooks have to run on every render.
+  const { paged, pagerProps } = usePagination(filtered);
 
   if (loading) return <Spinner label="Calculating budgets…" />;
   if (error) return <ErrorState error={error} onRetry={refetch} />;
@@ -163,7 +168,7 @@ export default function BudgetPage() {
                 <TableRow>{HEADERS.map((h, i) => <TableCell key={`${h}-${i}`}>{h}</TableCell>)}</TableRow>
               </TableHead>
               <TableBody>
-                {filtered.map((p) => {
+                {paged.map((p) => {
                   const open = expanded === p.project_id;
                   const remaining = Number(p.budget_remaining);
                   return [
@@ -315,6 +320,7 @@ export default function BudgetPage() {
               </TableBody>
             </Table>
           </TableContainer>
+          <TablePager {...pagerProps} label="Projects per page:" />
         </Paper>
       )}
     </Stack>

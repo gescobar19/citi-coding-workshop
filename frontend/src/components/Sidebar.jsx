@@ -13,7 +13,6 @@ import DashboardIcon from "@mui/icons-material/Dashboard";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import PeopleIcon from "@mui/icons-material/People";
 import PaidIcon from "@mui/icons-material/Paid";
-import DescriptionIcon from "@mui/icons-material/Description";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
@@ -29,7 +28,6 @@ const LINKS = [
   { to: "/projects", label: "Projects", Icon: TimelineIcon },
   { to: "/resources", label: "Resources", Icon: PeopleIcon },
   { to: "/budget", label: "Budget", Icon: PaidIcon },
-  { to: "/reports", label: "Reports", Icon: DescriptionIcon },
 ];
 
 const ADMIN_LINKS = [{ to: "/admin", label: "Administration", Icon: AdminPanelSettingsIcon }];
@@ -68,14 +66,17 @@ export default function Sidebar({ mobileOpen, onMobileClose, isMobile }) {
     );
   };
 
+  // minHeight rather than height so the panel fills its container when there is
+  // room and grows with the nav when there is not — a fixed height would paint
+  // only one viewport-worth of background and let a scrolled nav run past it.
   const content = (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column", bgcolor: C.sidebar }}>
+    <Box sx={{ minHeight: "100%", display: "flex", flexDirection: "column", bgcolor: C.sidebar }}>
       <Box sx={{ px: 2, py: 2.5, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2.5 }}>
           <Box sx={{ width: 28, height: 28, borderRadius: 2, bgcolor: C.indigo, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <AccountBalanceIcon sx={{ fontSize: 16, color: "#fff" }} />
           </Box>
-          <Typography sx={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>Vantage Bank</Typography>
+          <Typography sx={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>ACME Inc.</Typography>
         </Stack>
 
         <Stack direction="row" spacing={1.25} alignItems="center" sx={{ p: 1.25, borderRadius: 2, bgcolor: "rgba(255,255,255,0.05)" }}>
@@ -125,16 +126,42 @@ export default function Sidebar({ mobileOpen, onMobileClose, isMobile }) {
         open={mobileOpen}
         onClose={onMobileClose}
         ModalProps={{ keepMounted: true }}
-        sx={{ "& .MuiDrawer-paper": { width: SIDEBAR_WIDTH, border: 0 } }}
+        // Paint the paper itself, not just the panel inside it. Without a
+        // background here the drawer falls back to MUI's white paper, which shows
+        // through as soon as the nav is tall enough to scroll.
+        sx={{
+          "& .MuiDrawer-paper": {
+            width: SIDEBAR_WIDTH,
+            border: 0,
+            bgcolor: C.sidebar,
+          },
+        }}
       >
         {content}
       </Drawer>
     );
   }
 
+  // The panel is fixed to the viewport rather than stretched inside the flex row.
+  // Anchoring top:0 and bottom:0 makes it exactly window-height at all times, so
+  // the dark fill can never come up short — page length, page scroll and window
+  // size stop mattering. The outer aside is just a spacer holding the column open
+  // so the main content does not slide underneath.
   return (
-    <Box component="aside" sx={{ width: SIDEBAR_WIDTH, flexShrink: 0, position: "sticky", top: 0, height: "100vh" }}>
-      {content}
+    <Box component="aside" sx={{ width: SIDEBAR_WIDTH, flexShrink: 0 }}>
+      <Box
+        sx={{
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          width: SIDEBAR_WIDTH,
+          bgcolor: C.sidebar,
+          overflowY: "auto",
+          zIndex: 20,
+        }}
+      >
+        {content}
+      </Box>
     </Box>
   );
 }

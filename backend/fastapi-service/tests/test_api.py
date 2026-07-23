@@ -261,7 +261,7 @@ def test_admin_can_list_users(monkeypatch):
     users = [
         {
             "user_id": 1,
-            "email": "admin@vantagebank.com",
+            "email": "admin@acme.com",
             "role": "admin",
             "is_active": True,
             "created_at": None,

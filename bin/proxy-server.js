@@ -92,17 +92,29 @@ const server = http.createServer((req, res) => {
   delete headers['sec-fetch-dest'];
 
   // Keep only essential headers
+  const forwarded = {
+    'accept': headers.accept || 'application/json',
+    'content-type': headers['content-type'] || 'application/json',
+    'user-agent': headers['user-agent'] || 'proxy-server',
+    'host': target.host
+  };
+
+  // The app has no token layer: the caller's identity travels on X-User-Id /
+  // X-User-Role (see backend security.py). Rebuilding the header set from
+  // scratch above would drop them, and the API defaults an absent role to
+  // "executive" — so every write came back 403 even for an administrator.
+  for (const name of Object.keys(headers)) {
+    if (name.toLowerCase().startsWith('x-user-')) {
+      forwarded[name] = headers[name];
+    }
+  }
+
   const options = {
     hostname: target.hostname,
     port: target.port,
     path: target.path,
     method: req.method,
-    headers: {
-      'accept': headers.accept || 'application/json',
-      'content-type': headers['content-type'] || 'application/json',
-      'user-agent': headers['user-agent'] || 'proxy-server',
-      'host': target.host
-    }
+    headers: forwarded
   };
 
   const proxyReq = protocol.request(options, (proxyRes) => {

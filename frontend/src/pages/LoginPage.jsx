@@ -30,7 +30,7 @@ const ROLES = [
 
 export default function LoginPage({ onLogin }) {
   const [selected, setSelected] = useState(null);
-  const [email, setEmail] = useState("j.whitmore@vantagebank.com");
+  const [email, setEmail] = useState("j.whitmore@acme.com");
   const [password, setPassword] = useState("demopassword");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -90,7 +90,7 @@ export default function LoginPage({ onLogin }) {
               >
                 <AccountBalanceIcon sx={{ fontSize: 18, color: "#fff" }} />
               </Box>
-              <Typography sx={{ color: "#fff", fontWeight: 700 }}>Vantage Bank</Typography>
+              <Typography sx={{ color: "#fff", fontWeight: 700 }}>ACME Inc.</Typography>
             </Stack>
 
             <Typography variant="h1" sx={{ color: "#fff", fontSize: "1.75rem", mb: 2, lineHeight: 1.3 }}>
@@ -176,10 +176,10 @@ export default function LoginPage({ onLogin }) {
                     setError(null);
                     // Prefill the demo account for the chosen role.
                     if (role === "admin") {
-                      setEmail("admin@vantagebank.com");
+                      setEmail("admin@acme.com");
                       setPassword("adminpass123");
                     } else {
-                      setEmail("j.whitmore@vantagebank.com");
+                      setEmail("j.whitmore@acme.com");
                       setPassword("demopassword");
                     }
                   }}

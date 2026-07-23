@@ -11,7 +11,6 @@ import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ResourcesPage from "./pages/ResourcesPage";
 import BudgetPage from "./pages/BudgetPage";
 import AdminPage from "./pages/AdminPage";
-import ReportsPage from "./pages/ReportsPage";
 
 const SESSION_KEY = "pms.user";
 
@@ -55,7 +54,6 @@ export default function App() {
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/resources" element={<ResourcesPage />} />
                 <Route path="/budget" element={<BudgetPage />} />
-                <Route path="/reports" element={<ReportsPage />} />
                 {/* Admin console is administrator-only; the API enforces it too. */}
                 <Route
                   path="/admin"

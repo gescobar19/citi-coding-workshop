@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Box, Button, Grid, Stack, Typography } from "@mui/material";
+import { Box, Button, Grid, Paper, Stack, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "react-router-dom";
 import { useDirectory, useProjects } from "../services/useApi.js";
@@ -9,6 +9,8 @@ import { displayStatus, STATUS_LABELS } from "../services/format.js";
 import ProjectCard from "../components/ProjectCard";
 import ProjectFormDialog from "../components/ProjectFormDialog";
 import SearchField from "../components/SearchField";
+import TablePager from "../components/TablePager";
+import { usePagination } from "../services/usePagination.js";
 import { CardSkeletons } from "../components/LoadingState";
 import ErrorState from "../components/ErrorState";
 import EmptyState from "../components/EmptyState";
@@ -45,6 +47,9 @@ export default function ProjectsListPage() {
       return matchSearch && matchStatus;
     });
   }, [projects, search, statusFilter]);
+
+  const { paged, pagerProps } = usePagination(filtered);
+  const pageOffset = pagerProps.page * pagerProps.rowsPerPage;
 
   const lateCount = projects?.filter((p) => p.has_late_deliverables).length || 0;
 
@@ -105,17 +110,25 @@ export default function ProjectsListPage() {
       )}
 
       {!loading && !error && filtered.length > 0 && (
-        <Grid container spacing={2}>
-          {filtered.map((p, i) => (
-            <Grid size={{ xs: 12, lg: 6 }} key={p.project_id}>
-              <ProjectCard
-                project={p}
-                color={getProjectColor(i)}
-                onClick={() => navigate(`/projects/${p.project_id}`)}
-              />
-            </Grid>
-          ))}
-        </Grid>
+        <>
+          <Grid container spacing={2}>
+            {paged.map((p, i) => (
+              <Grid size={{ xs: 12, lg: 6 }} key={p.project_id}>
+                <ProjectCard
+                  project={p}
+                  // Offset by the page so a project keeps the same colour
+                  // wherever it lands, instead of every page restarting at the
+                  // first hue.
+                  color={getProjectColor(pageOffset + i)}
+                  onClick={() => navigate(`/projects/${p.project_id}`)}
+                />
+              </Grid>
+            ))}
+          </Grid>
+          <Paper variant="outlined" sx={{ mt: 2 }}>
+            <TablePager {...pagerProps} label="Projects per page:" />
+          </Paper>
+        </>
       )}
 
       <ProjectFormDialog

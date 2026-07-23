@@ -14,7 +14,6 @@ const TITLES = {
   "/projects": "Projects",
   "/resources": "Resources",
   "/budget": "Budget",
-  "/reports": "Reports",
   "/admin": "Administration",
 };
 
